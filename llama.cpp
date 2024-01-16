@@ -601,6 +601,7 @@ static std::map<llm_arch, std::map<llm_tensor, std::string>> LLM_TENSOR_NAMES = 
         },
     },
 
+
     {
         LLM_ARCH_UNKNOWN,
         {
@@ -1390,6 +1391,8 @@ struct llama_cparams {
     float yarn_attn_factor;
     float yarn_beta_fast;
     float yarn_beta_slow;
+
+    std::string layer_order;
 
     bool mul_mat_q;
     bool offload_kqv;
@@ -4297,6 +4300,8 @@ struct llm_build_context {
     const int32_t kv_head;  // index of where we store new KV data in the cache
     const int32_t n_orig_ctx;
 
+    const std::string layer_order;
+
     const bool do_rope_shift;
 
     const llm_build_cb & cb;
@@ -4339,6 +4344,7 @@ struct llm_build_context {
         n_kv             (worst_case ? n_ctx            : kv_self.n),
         kv_head          (worst_case ? n_ctx - n_tokens : kv_self.head),
         n_orig_ctx       (cparams.n_yarn_orig_ctx),
+        layer_order      (cparams.layer_order),
         do_rope_shift    (worst_case || kv_self.has_shift),
         cb               (cb),
         buf_compute_meta (lctx.buf_compute_meta) {
@@ -4388,7 +4394,41 @@ struct llm_build_context {
             llm_build_k_shift(ctx0, hparams, cparams, kv_self, gf, LLM_ROPE, n_ctx, freq_base, freq_scale, cb);
         }
 
-        for (int il = 0; il < n_layer; ++il) {
+        //printf("build_llama %s[%d]\n", layer_order.c_str(), (int) layer_order.size());
+        int64_t n_layer_count = n_layer;
+        int64_t *n_layer_order = nullptr;
+
+        if (!layer_order.empty()) {
+            // "[0,1,2,3,4,5, ... ]"
+            // "[0, 1, 2, 3, 4, 5, ... ]"
+
+            const char *begin = layer_order.c_str();
+            if (begin[0] == '[')
+                ++begin;
+
+            std::stringstream ss(begin);
+            std::vector<std::string> vals;
+
+            while (ss.good()) {
+                std::string substr;
+                getline(ss, substr, ',');
+                vals.push_back(substr);
+            }
+
+            size_t layer_order_size = vals.size();
+            n_layer_order = new int64_t[layer_order_size];
+
+            for(size_t i = 0; i < vals.size(); ++i) {
+                n_layer_order[i] = atoi(vals[i].c_str());
+                //printf("%ld\n", n_layer_order[i]);
+            }
+
+            n_layer_count = layer_order_size;
+        }
+
+//      for (int il = 0; il < n_layer; ++il) {
+        for (int iil = 0; iil < n_layer_count; ++iil) {
+            const int il = n_layer_order ? n_layer_order[iil] : iil;
             struct ggml_tensor * inpSA = inpL;
 
             // norm
@@ -9267,6 +9307,7 @@ struct llama_context_params llama_context_default_params() {
         /*.logits_all                  =*/ false,
         /*.embedding                   =*/ false,
         /*.offload_kqv                 =*/ true,
+        /*.layer_order                 =*/ "",
     };
 
     return result;
@@ -9392,6 +9433,7 @@ struct llama_context * llama_new_context_with_model(
     cparams.yarn_beta_slow   = params.yarn_beta_slow;
     cparams.mul_mat_q        = params.mul_mat_q;
     cparams.offload_kqv      = params.offload_kqv;
+    cparams.layer_order      = params.layer_order;
 
     cparams.n_ctx            = params.n_ctx           == 0    ? hparams.n_ctx_train           : params.n_ctx;
     cparams.rope_freq_base   = params.rope_freq_base  == 0.0f ? hparams.rope_freq_base_train  : params.rope_freq_base;

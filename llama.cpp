@@ -4591,6 +4591,8 @@ struct llm_build_context {
 
         ggml_build_forward_expand(gf, cur);
 
+        delete [] n_layer_order;
+
         return gf;
     }
 

@@ -749,6 +749,13 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 std::istreambuf_iterator<char>(),
                 std::back_inserter(sparams.grammar)
             );
+        } else if (arg == "--layer-order") {
+            if (++i >= argc) {
+                invalid_param = true;
+                break;
+            }
+            params.layer_order = argv[i];
+            printf("gpt_params_parse_ex %s[%d]\n", argv[i], (int) strlen(argv[i]));
         } else if (arg == "--override-kv") {
             if (++i >= argc) {
                 invalid_param = true;
@@ -984,6 +991,8 @@ void gpt_print_usage(int /*argc*/, char ** argv, const gpt_params & params) {
     printf("                        draft model for speculative decoding\n");
     printf("  -ld LOGDIR, --logdir LOGDIR\n");
     printf("                        path under which to save YAML logs (no logging if unset)\n");
+    printf("  --layer-order [0,1,2,3, ...]\n");
+    printf("                        override default layer order execution for self-merging\n");
     printf("  --override-kv KEY=TYPE:VALUE\n");
     printf("                        advanced option to override model metadata by key. may be specified multiple times.\n");
     printf("                        types: int, float, bool. example: --override-kv tokenizer.ggml.add_bos_token=bool:false\n");
@@ -1138,6 +1147,7 @@ struct llama_context_params llama_context_params_from_gpt_params(const gpt_param
     cparams.yarn_beta_slow    = params.yarn_beta_slow;
     cparams.yarn_orig_ctx     = params.yarn_orig_ctx;
     cparams.offload_kqv       = !params.no_kv_offload;
+    cparams.layer_order       = params.layer_order;
 
     cparams.type_k = kv_cache_type_from_str(params.cache_type_k);
     cparams.type_v = kv_cache_type_from_str(params.cache_type_v);
@@ -1176,6 +1186,7 @@ std::tuple<struct llama_model *, struct llama_context *> llama_init_from_gpt_par
     }
 
     auto cparams = llama_context_params_from_gpt_params(params);
+    //printf("llama_init_from_gpt_params: %s [%d]\n", cparams.layer_order.c_str(), (int) cparams.layer_order.size());
 
     llama_context * lctx = llama_new_context_with_model(model, cparams);
     if (lctx == NULL) {

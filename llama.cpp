@@ -1745,8 +1745,6 @@ struct llama_cparams {
 
     std::string layer_order;
 
-    float defrag_thold;
-
     bool embeddings;
     bool causal_attn;
     bool offload_kqv;

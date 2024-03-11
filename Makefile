@@ -2,7 +2,7 @@
 BUILD_TARGETS = \
 	main quantize quantize-stats perplexity imatrix embedding vdot q8dot train-text-from-scratch convert-llama2c-to-ggml \
 	simple batched batched-bench save-load-state server gguf llama-bench libllava.a llava-cli baby-llama beam-search  \
-	speculative infill tokenize benchmark-matmult parallel finetune export-lora lookahead lookup passkey gritlm tests/test-c.o
+	speculative infill tokenize benchmark-matmult parallel finetune export-lora lookahead lookup passkey gritlm 
 
 # Binaries only useful for tests
 TEST_TARGETS = \
@@ -890,9 +890,6 @@ tests/test-tokenizer-1-llama: tests/test-tokenizer-1-llama.cpp ggml.o llama.o $(
 tests/test-rope: tests/test-rope.cpp ggml.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -c $< -o $(call GET_OBJ_FILE, $<)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h $<,$^) $(call GET_OBJ_FILE, $<) -o $@ $(LDFLAGS)
-
-tests/test-c.o: tests/test-c.c llama.h
-	$(CC) $(CFLAGS) -c $(filter-out %.h,$^) -o $@
 
 tests/test-backend-ops: tests/test-backend-ops.cpp ggml.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -c $< -o $(call GET_OBJ_FILE, $<)
